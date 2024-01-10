@@ -1,0 +1,169 @@
+--1. Write a function that returns a list of books with the minimum number of pages issued by a particular publisher.
+--1. Müəyyən Publisher tərəfindən çap olunmuş minimum səhifəli kitabların siyahısını çıxaran funksiya yazın
+-- Idsi 1 olan Press-in hecbir kitabi yoxdur. Ferqli usullarla yoxladim Press Id 1 den hecbir kitab gelmir.
+CREATE FUNCTION ud_minPage(@publisher_id int)
+RETURNS TABLE
+RETURN 
+	SELECT TOP 1 Books.[Name] ,Books.Pages FROM Books
+	INNER JOIN Press ON Books.Id_Press=Press.Id
+	WHERE Press.Id=@publisher_id
+	GROUP BY Books.[Name],Books.Pages
+	ORDER BY Pages ASC
+
+SELECT * FROM dbo.ud_minPage(3)
+
+--2. Write a function that returns the names of publishers who have published books with an average number of pages greater than N. The average number of pages is passed through the parameter.
+--2. Orta səhifə sayı N-dən çox səhifəli kitab çap edən Publisherlərin adını qaytaran funksiya yazın. N parameter olaraq göndərilir.
+
+CREATE FUNCTION ud_avgPagedBook(@avg int)
+RETURNS TABLE
+RETURN 
+	SELECT Press.Id, Press.[Name] AS [Press Name], Books.[Name] AS [Book Name],Books.Pages
+	FROM Press
+	INNER JOIN Books ON Press.Id=Books.Id_Press
+	GROUP BY Press.Id,Press.[Name], Books.[Name],Books.Pages
+	HAVING AVG(Pages) >@avg
+
+SELECT * FROM dbo.ud_avgPagedBook(1000)
+
+--3. Write a function that returns the total sum of the pages of all the books in the library issued by the specified publisher.
+--3. Müəyyən Publisher tərəfindən çap edilmiş bütün kitab səhifələrinin cəmini tapan və qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_totalPages(@publisher_id int)
+RETURNS int
+AS
+BEGIN
+	DECLARE @sum int = 0
+	SELECT @sum=SUM(Books.Pages)
+	FROM Books
+	INNER JOIN Press ON Books.Id_Press=Press.Id
+	WHERE Press.Id=@publisher_id
+	RETURN @sum
+END
+
+PRINT dbo.ud_totalPages(2)
+
+--bu query yoxlanis ucun idi
+SELECT SUM(Books.Pages)AS[sum]
+FROM Books
+	INNER JOIN Press ON Books.Id_Press=Press.Id
+	WHERE Press.Id=2
+
+--4. Write a function that returns a list of names and surnames of all students who took books between the two specified dates.
+--4. Müəyyən iki tarix aralığında kitab götürmüş Studentlərin ad və soyadını list şəklində qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_betweenDates(@date_from DATE,@date_to DATE)
+RETURNS TABLE
+RETURN 
+	SELECT FirstName,LastName
+	FROM S_Cards
+	INNER JOIN Students ON S_Cards.Id_Student=Students.Id
+	WHERE DateOut BETWEEN @date_from AND @date_to
+	GROUP BY FirstName,LastName
+
+	SELECT * FROM dbo.ud_betweenDates('1900-01-01','2001-05-18')
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- Asagidaki kodlar funksiyanin neticesinin dogrulugunu yoxlamaq ucundur.
+	SELECT Students.Id, FirstName,LastName
+	FROM S_Cards
+	INNER JOIN Students ON S_Cards.Id_Student=Students.Id
+	WHERE DateOut BETWEEN '1900-01-01' AND '2001-05-18'
+	GROUP BY Students.Id,FirstName,LastName
+
+	SELECT * FROM S_Cards
+
+--5. Write a function that returns a list of students who are currently working with the specified book of a certain author.
+--5. Müəyyən kitabla hal hazırda işləyən bütün tələbələrin siyahısını qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_workedBooks(@book_id int)
+RETURNS TABLE
+RETURN
+	SELECT FirstName,LastName
+	FROM Students
+	RIGHT JOIN S_Cards ON S_Cards.Id_Student=Students.Id
+	RIGHT JOIN Books ON S_Cards.Id_Book=Books.Id
+	WHERE Books.Id=@book_id AND DateIn IS NULL
+	GROUP BY FirstName,LastName
+
+	SELECT * FROM dbo.ud_workedBooks(18)
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- Asagidaki kodlar funksiyanin neticesinin dogrulugunu yoxlamaq ucundur.
+	SELECT Students.Id, FirstName,LastName
+	FROM Students
+	INNER JOIN S_Cards ON S_Cards.Id_Student=Students.Id
+	INNER JOIN Books ON S_Cards.Id_Book=Books.Id
+	WHERE Books.Id=18 AND DateIn IS NULL
+
+
+	SELECT * FROM S_Cards
+
+--6. Write a function that returns information about publishers whose total number of pages of books issued by them is greater than N.
+--6. Çap etdiyi bütün səhifə cəmi N-dən böyük olan Publisherlər haqqında informasiya qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_pressedPageCount(@N int)
+RETURNS @table TABLE(Id int, [Name] nvarchar(30))
+AS
+BEGIN
+	INSERT @table
+	SELECT Press.Id,Press.[Name]
+	FROM Press
+	INNER JOIN Books ON Books.Id_Press=Press.Id
+	GROUP BY Press.Id,Press.[Name]
+	HAVING SUM(Books.Pages)>@N
+	RETURN
+END
+
+SELECT * FROM dbo.ud_pressedPageCount(2300)
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- 
+	SELECT Press.Id,Press.[Name],SUM(Books.Pages)AS [Page Count]
+	FROM Press
+	INNER JOIN Books ON Books.Id_Press=Press.Id
+	GROUP BY Press.Id,Press.[Name]
+	HAVING SUM(Books.Pages)>2300
+
+
+--7. Write a function that returns information about the most popular author among students and about the number of books of this author taken in the library.
+--7.Studentlər arasında Ən popular avtor və onun götürülmüş kitablarının sayı haqqında informasiya verən funksiya yazın 
+
+
+--8. Write a function that returns a list of books that were taken by both teachers and students.
+--Studentlər və Teacherlər (hər ikisi) tərəfindən götürülmüş (ortaq - həm onlar həm bunlar) kitabların listini qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_booksList()
+RETURNS TABLE
+RETURN
+	SELECT Books.Id, [Name]
+	FROM Books
+	INNER JOIN S_Cards ON Books.Id=S_Cards.Id
+	INNER JOIN T_Cards ON Books.Id=T_Cards.Id_Book
+	WHERE Books.Id=T_Cards.Id_Book AND Books.Id=S_Cards.Id_Book
+
+SELECT * FROM dbo.ud_booksList()
+
+--9. Write a function that returns the number of students who did not take books.
+--9. Kitab götürməyən tələbələrin sayını qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_lazyStudents()
+RETURNS INT
+AS
+BEGIN
+	DECLARE @count int=0
+	SELECT @count=COUNT(Id_Student) 
+	FROM S_Cards
+	WHERE DateIn IS NULL
+	RETURN @count
+END
+PRINT dbo.ud_lazyStudents()
+
+--10. Write a function that returns a list of librarians and the number of books issued by each of them.
+--10. Kitabxanaçılar və onların verdiyi kitabların sayını qaytaran funksiya yazın.
+
+CREATE FUNCTION ud_librarians()
+RETURNS TABLE
+RETURN 
+	SELECT Libs.Id,Libs.FirstName,Libs.LastName,SUM(S_Cards.Id_Lib)+SUM(T_Cards.Id_Lib) AS [Total Count]
+	FROM Libs
+	INNER JOIN S_Cards ON S_Cards.Id_Lib=Libs.Id
+	INNER JOIN T_Cards ON T_Cards.Id_Lib=Libs.Id
+	GROUP BY Libs.Id,Libs.FirstName,Libs.LastName
+
+SELECT * FROM dbo.ud_librarians()
